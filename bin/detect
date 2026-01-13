@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+echo "Strapi-next-monorepo-starter"
+exit 0

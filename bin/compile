@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BUILD_DIR="$1"
+CACHE_DIR="$2"
+ENV_DIR="$3"
+
+# Load Heroku config vars (files) into env
+if [[ -d "$ENV_DIR" ]]; then
+  for e in "$ENV_DIR"/*; do
+    [[ -f "$e" ]] || continue
+    export "$(basename "$e")"="$(cat "$e")"
+  done
+fi
+
+TURBO_SCOPE="${TURBO_SCOPE:-}"
+if [[ -z "$TURBO_SCOPE" ]]; then
+  echo "Missing TURBO_SCOPE (e.g. @repo/ui). Aborting." >&2
+  exit 1
+fi
+
+cd "$BUILD_DIR"
+
+TURBO_VERSION="${TURBO_VERSION:-2.7.3}"
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+download_turbo() {
+  local url
+  url="https://registry.npmjs.org/@turbo/turbo-linux-64/-/turbo-linux-64-${TURBO_VERSION}.tgz"
+  curl -fsSL "$url" -o "$TMP/turbo.tgz"
+  tar -xzf "$TMP/turbo.tgz" -C "$TMP"
+  chmod +x "$TMP/package/bin/turbo"
+  echo "$TMP/package/bin/turbo"
+}
+
+# Always materialize strapi-types/generated if inputs exist
+if [[ -d "packages/strapi-types" ]] && compgen -G "apps/strapi/types/generated/*.d.ts" >/dev/null; then
+  rm -rf "packages/strapi-types/generated"
+  mkdir -p "packages/strapi-types/generated"
+  cp -f apps/strapi/types/generated/*.d.ts "packages/strapi-types/generated/"
+fi
+
+TURBO_BIN="$(download_turbo)"
+
+rm -rf out
+"$TURBO_BIN" prune "$TURBO_SCOPE" --docker
+
+# Move the `out/` directory aside before wiping repo
+mv out "$TMP/out"
+
+# Replace build dir with pruned tree
+rm -rf ./* ./.??* ./.?* 2>/dev/null || true
+tar -C "$TMP/out/full" -cf - . | tar -C "$BUILD_DIR" -xf -
+cp -f "$TMP/out/yarn.lock" "$BUILD_DIR/yarn.lock"
+
+echo "turbo-prune: scope=$TURBO_SCOPE turbo=$TURBO_VERSION"
