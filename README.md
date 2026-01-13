@@ -51,8 +51,8 @@ These are set **per Heroku app/dyno** as Heroku config vars:
 
 Heroku expects certain files in the **build root**. Because `turbo prune` replaces the repo contents, this buildpack copies these files from `apps/$APP/` to the build root after pruning:
 
-- `apps/$APP/Procfile` → `./Procfile` (**required**)
-- `apps/$APP/.slugignore` → `./.slugignore` (optional, recommended)
+- `apps/$APP/Procfile` → `./Procfile` (optional)
+- `apps/$APP/.slugignore` → `./.slugignore` (optional)
 - `apps/$APP/app.json` → `./app.json` (optional)
 
 This behavior is similar to [heroku-buildpack-multi-procfile](https://github.com/heroku/heroku-buildpack-multi-procfile/tree/master) but integrated into this buildpack.

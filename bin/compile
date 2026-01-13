@@ -124,22 +124,20 @@ if [[ ! -d "$APP_ROOT" ]]; then
   exit 1
 fi
 
-# Procfile (required)
-PROCFILE_SRC="$APP_ROOT/Procfile"
-if [[ ! -f "$PROCFILE_SRC" ]]; then
-  echo "Procfile not found in: $APP_ROOT" >&2
-  exit 1
+# Procfile
+PROCFILE="$APP_ROOT/Procfile"
+if [[ -f "$PROCFILE" ]]; then
+  cp -f "$PROCFILE" "$BUILD_DIR/Procfile"
+  echo "Copied $PROCFILE -> Procfile" >&2
 fi
-cp -f "$PROCFILE_SRC" "$BUILD_DIR/Procfile"
-echo "Copied $PROCFILE_SRC -> Procfile" >&2
 
-# .slugignore (optional, but recommended to keep slug small)
+# .slugignore
 if [[ -f "$APP_ROOT/.slugignore" ]]; then
   cp -f "$APP_ROOT/.slugignore" "$BUILD_DIR/.slugignore"
   echo "Copied $APP_ROOT/.slugignore -> .slugignore" >&2
 fi
 
-# app.json (optional Heroku metadata)
+# app.json
 if [[ -f "$APP_ROOT/app.json" ]]; then
   cp -f "$APP_ROOT/app.json" "$BUILD_DIR/app.json"
   echo "Copied $APP_ROOT/app.json -> app.json" >&2
