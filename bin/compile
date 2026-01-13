@@ -16,10 +16,17 @@ if [[ -d "$ENV_DIR" ]]; then
   done
 fi
 
-# Turbo scope must be provided (e.g. @repo/ui) to determine what to prune/build.
-TURBO_SCOPE="${TURBO_SCOPE:-}"
-if [[ -z "$TURBO_SCOPE" ]]; then
-  echo "Missing TURBO_SCOPE (e.g. @repo/ui). Aborting." >&2
+# Workspace must be provided (e.g. @repo/ui, @repo/strapi) to determine what to prune/build.
+WORKSPACE="${WORKSPACE:-}"
+if [[ -z "$WORKSPACE" ]]; then
+  echo "Missing WORKSPACE (e.g. @repo/ui). Aborting." >&2
+  exit 1
+fi
+
+# App must be provided (e.g. ui or strapi) to locate its root (for Procfile, app.json etc).
+APP="${APP:-}"
+if [[ -z "$APP" ]]; then
+  echo "Missing APP (e.g. ui). Aborting." >&2
   exit 1
 fi
 
@@ -31,6 +38,8 @@ TURBO_VERSION="${TURBO_VERSION:-2.7.3}"
 # Temp workspace for downloads and pruned output. Always cleaned up on exit.
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+
+# --- TURBO DOWNLOAD AND PRUNE
 
 download_turbo() {
   # Download the platform-specific turbo binary tarball and return the extracted binary path.
@@ -88,7 +97,7 @@ export TURBO_GLOBAL_WARNING_DISABLED=1
 
 # Run turbo prune to create a minimal workspace for the requested scope.
 rm -rf out
-"$TURBO_BIN" prune "$TURBO_SCOPE" --docker
+"$TURBO_BIN" prune "$WORKSPACE" --docker
 
 # Move the `out/` directory aside before wiping the repo working tree.
 mv out "$TMP/out"
@@ -98,25 +107,34 @@ rm -rf ./* ./.??* ./.?* 2>/dev/null || true
 tar -C "$TMP/out/full" -cf - . | tar -C "$BUILD_DIR" -xf -
 cp -f "$TMP/out/yarn.lock" "$BUILD_DIR/yarn.lock"
 
-echo "turbo-prune: scope=$TURBO_SCOPE turbo=$TURBO_VERSION"
+echo "turbo-prune: scope=$WORKSPACE turbo=$TURBO_VERSION"
 
-# PROCFILE must point to a Procfile *within* the monorepo; copy it to build root as `Procfile`.
-: "${PROCFILE:?PROCFILE was not set. Aborting}"
+# --- HEROKU CONFIG AND ARTIFACTS
+# Heroku only reads these files from the build root, so copy them from the app folder after prune.
 
-SRC_PROCFILE="${BUILD_DIR}/${PROCFILE}"
-DST_PROCFILE="${BUILD_DIR}/Procfile"
-
-if [[ ! -f "$SRC_PROCFILE" ]]; then
-  echo "Procfile not found at: $SRC_PROCFILE" >&2
+APP_ROOT="${BUILD_DIR}/apps/${APP}"
+if [[ ! -d "$APP_ROOT" ]]; then
+  echo "App directory not found: $APP_ROOT (APP=$APP)" >&2
   exit 1
 fi
 
-cp -f "$SRC_PROCFILE" "$DST_PROCFILE"
-echo "Copied $PROCFILE -> Procfile" >&2
+# Procfile (required)
+PROCFILE_SRC="$APP_ROOT/Procfile"
+if [[ ! -f "$PROCFILE_SRC" ]]; then
+  echo "Procfile not found in: $APP_ROOT" >&2
+  exit 1
+fi
+cp -f "$PROCFILE_SRC" "$BUILD_DIR/Procfile"
+echo "Copied $PROCFILE_SRC -> Procfile" >&2
 
-# If the app directory has an app.json (Heroku metadata), copy it to build root as well.
-APP_DIR="$(dirname "$SRC_PROCFILE")"
-if [[ -f "${APP_DIR}/app.json" ]]; then
-  cp -f "${APP_DIR}/app.json" "${BUILD_DIR}/app.json"
-  echo "Copied ${PROCFILE%/*}/app.json -> app.json" >&2
+# .slugignore (optional, but recommended to keep slug small)
+if [[ -f "$APP_ROOT/.slugignore" ]]; then
+  cp -f "$APP_ROOT/.slugignore" "$BUILD_DIR/.slugignore"
+  echo "Copied $APP_ROOT/.slugignore -> .slugignore" >&2
+fi
+
+# app.json (optional Heroku metadata)
+if [[ -f "$APP_ROOT/app.json" ]]; then
+  cp -f "$APP_ROOT/app.json" "$BUILD_DIR/app.json"
+  echo "Copied $APP_ROOT/app.json -> app.json" >&2
 fi
