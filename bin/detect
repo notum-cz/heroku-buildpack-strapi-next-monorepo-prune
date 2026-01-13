@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-echo "Strapi-next-monorepo-starter"
-exit 0
+BUILD_DIR="$1"
+cd "$BUILD_DIR"
+
+if compgen -G "turbo.json" > /dev/null; then
+  echo "Turbo monorepo detected"
+  exit 0
+fi
+
+exit 1
