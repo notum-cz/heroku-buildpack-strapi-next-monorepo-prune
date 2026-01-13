@@ -27,13 +27,39 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 download_turbo() {
-  local url
+  local url pkgdir turbo_bin
   url="https://registry.npmjs.org/turbo-linux-64/-/turbo-linux-64-${TURBO_VERSION}.tgz"
-  echo "Downloading turbo from: $url..."
+
+  echo "Downloading turbo from: $url..." >&2
   curl -fsSL "$url" -o "$TMP/turbo.tgz"
   tar -xzf "$TMP/turbo.tgz" -C "$TMP"
-  chmod +x "$TMP/package/bin/turbo"
-  echo "$TMP/package/bin/turbo"
+
+  pkgdir="$TMP/package"
+
+  turbo_bin=""
+  for candidate in \
+    "$pkgdir/bin/turbo" \
+    "$pkgdir/bin/turbo-linux-64" \
+    "$pkgdir/turbo" \
+    "$pkgdir/turbo-linux-64"
+  do
+    if [[ -f "$candidate" ]]; then
+      turbo_bin="$candidate"
+      break
+    fi
+  done
+
+  if [[ -z "$turbo_bin" ]]; then
+    turbo_bin="$(find "$pkgdir" -maxdepth 3 -type f \( -name turbo -o -name 'turbo-linux-*' -o -name 'turbo-*' \) | head -n 1 || true)"
+  fi
+
+  if [[ -z "$turbo_bin" ]]; then
+    echo "Could not find turbo binary after extracting: $url" >&2
+    exit 1
+  fi
+
+  chmod +x "$turbo_bin"
+  echo "$turbo_bin"
 }
 
 # Always materialize strapi-types/generated if inputs exist
