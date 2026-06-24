@@ -33,7 +33,7 @@ fi
 cd "$BUILD_DIR"
 
 # Pin turbo version (override via TURBO_VERSION env var).
-TURBO_VERSION="${TURBO_VERSION:-2.7.3}"
+TURBO_VERSION="${TURBO_VERSION:-2.9.18}"
 
 # Temp workspace for downloads and pruned output. Always cleaned up on exit.
 TMP="$(mktemp -d)"
@@ -43,8 +43,19 @@ trap 'rm -rf "$TMP"' EXIT
 
 download_turbo() {
   # Download the platform-specific turbo binary tarball and return the extracted binary path.
-  local url root_dir pkgdir turbo_bin
-  url="https://registry.npmjs.org/turbo-linux-64/-/turbo-linux-64-${TURBO_VERSION}.tgz"
+  local url root_dir pkgdir turbo_bin major minor
+
+  # Turbo renamed its platform binary package from the unscoped `turbo-linux-64`
+  # to the scoped `@turbo/linux-64` starting with 2.9 (the unscoped name stops at
+  # 2.8.17). Pick the tarball URL based on the requested version; note the scoped
+  # tarball filename drops the scope (`linux-64-<version>.tgz`).
+  major="${TURBO_VERSION%%.*}"
+  minor="${TURBO_VERSION#*.}"; minor="${minor%%.*}"
+  if (( major > 2 || (major == 2 && minor >= 9) )); then
+    url="https://registry.npmjs.org/@turbo/linux-64/-/linux-64-${TURBO_VERSION}.tgz"
+  else
+    url="https://registry.npmjs.org/turbo-linux-64/-/turbo-linux-64-${TURBO_VERSION}.tgz"
+  fi
 
   echo "Downloading turbo from: $url..." >&2
   curl -fsSL "$url" -o "$TMP/turbo.tgz"
