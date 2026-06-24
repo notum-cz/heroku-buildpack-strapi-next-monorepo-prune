@@ -43,7 +43,7 @@ These are set **per Heroku app/dyno** as Heroku config vars:
 
 ### Optional config vars
 
-- `TURBO_VERSION` – turbo version to download (default: `2.7.3`). Should match the version in your repo's package.json
+- `TURBO_VERSION` – turbo version to download (default: `2.9.18`). Should match the version in your repo's package.json. Both the old unscoped (`turbo-linux-64`, ≤ `2.8.17`) and the new scoped (`@turbo/linux-64`, ≥ `2.9`) npm packages are supported; the correct one is selected automatically based on this version.
 
 ## Heroku artifacts copied to repo root
 
